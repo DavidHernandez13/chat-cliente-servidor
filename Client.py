@@ -1,41 +1,28 @@
 import socket
 import threading
 
-def recibir_mensajes(sock):
+nombre = input("Ingresa tu nombre: ")
+
+cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+cliente.connect(('127.0.0.1', 12345))
+
+def recibir():
     while True:
         try:
-            mensaje = sock.recv(1024)
-            if mensaje:
-                print(f"\n{mensaje.decode()}")
-                print(">>", end="", flush=True)
+            mensaje = cliente.recv(1024).decode('utf-8')
+            if mensaje == 'NOMBRE':
+                cliente.send(nombre.encode('utf-8'))
+            else:
+                print(mensaje)
         except:
+            print("Error de conexión")
+            cliente.close()
             break
 
-def cliente():
-    host = input("IP del servidor: ")
-    port = 12345
-
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((host, port))
-
-    print("Conectado al chat grupal - Escribe 'exit' para salir")
-
-    # Hilo para recibir mensajes
-    thread = threading.Thread(target=recibir_mensajes, args=(client_socket,))
-    thread.daemon = True
-    thread.start()
-
+def escribir():
     while True:
-        mensaje = input(">>")
-        if mensaje.lower() == 'exit':
-            break
-        try:
-            client_socket.sendall(mensaje.encode())
-        except:
-            print("Error: conexión perdida")
-            break
+        mensaje = f"{nombre}: {input('')}"
+        cliente.send(mensaje.encode('utf-8'))
 
-    client_socket.close()
-
-if __name__ == "__main__":
-    cliente()
+threading.Thread(target=recibir).start()
+threading.Thread(target=escribir).start()
