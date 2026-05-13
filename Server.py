@@ -2,44 +2,47 @@ import socket
 import threading
 
 clientes = []
+nombres = []
 
-def manejar_cliente(conn, addr):
-    print(f"Cliente conectado: {addr}")
+def broadcast(mensaje):
+    for cliente in clientes:
+        cliente.send(mensaje)
+
+def manejar_cliente(cliente):
     while True:
         try:
-            mensaje = conn.recv(1024)
-            if not mensaje:
-                break
-            mensaje_decodificado = mensaje.decode()
-            print(f"{addr}: {mensaje_decodificado}")
-            # Enviar mensaje a todos los clientes
-            for cliente in clientes:
-                try:
-                    cliente.send(f"{addr}: {mensaje_decodificado}".encode())
-                except:
-                    pass
+            mensaje = cliente.recv(1024)
+            broadcast(mensaje)
         except:
+            index = clientes.index(cliente)
+            clientes.remove(cliente)
+            cliente.close()
+            nombre = nombres[index]
+            broadcast(f"{nombre} se desconectó".encode('utf-8'))
+            nombres.remove(nombre)
             break
-    
-    print(f"Cliente desconectado: {addr}")
-    clientes.remove(conn)
-    conn.close()
 
-def servidor():
-    host = '0.0.0.0'
-    port = 12345
+def recibir():
+    servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servidor.bind(('0.0.0.0', 12345))
+    servidor.listen()
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
-
-    print(f"Servidor de chat escuchando en {host}:{port}")
+    print("Servidor corriendo...")
 
     while True:
-        conn, addr = server_socket.accept()
-        clientes.append(conn)
-        thread = threading.Thread(target=manejar_cliente, args=(conn, addr))
+        cliente, direccion = servidor.accept()
+        print(f"Conectado con {str(direccion)}")
+
+        cliente.send("NOMBRE".encode('utf-8'))
+        nombre = cliente.recv(1024).decode('utf-8')
+
+        nombres.append(nombre)
+        clientes.append(cliente)
+
+        print(f"Nombre del cliente: {nombre}")
+        broadcast(f"{nombre} se unió al chat".encode('utf-8'))
+
+        thread = threading.Thread(target=manejar_cliente, args=(cliente,))
         thread.start()
 
-if __name__ == "__main__":
-    servidor()
+recibir()
